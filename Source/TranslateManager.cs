@@ -83,7 +83,7 @@ namespace EthernetTranslator_CSharp
             {
                 Console.WriteLine($"[DEBUG] OwerId was found with infomation : {owner}");
                 owner.DateTime = DateTime.Now;
-                return (owner.OwnerMac, (ushort)(owner.ID), owner.OwnerIPAddress);
+                return (owner.OwnerMac, owner.ID, owner.OwnerIPAddress);
             }
             else
                 Console.WriteLine($"[DEBUG] OwerId not found with Id : {id}");
@@ -99,7 +99,7 @@ namespace EthernetTranslator_CSharp
             if (packet[12..14].SequenceEqual<byte>([0x08, 0x00]) && packet.Length >= 33)
             {
                 //if the des mac address does not match the NIC first 4 mac address bytes ;return;
-                if (!packet[0..4].SequenceEqual(NIC.SystemMacAddress.MacAddressBytes[0..4])) return;
+                if (!packet[0..4].SequenceEqual(SystemMacAddress.MacAddressBytes[0..4])) return;
                 IPAddress ip = new IPAddress(packet[30..34]);
 
                 var index = BestSubnetMatch(ip);
@@ -138,7 +138,7 @@ namespace EthernetTranslator_CSharp
                     //saves the original id ,taken from the packet destination Mac 
                     //Example: Target Sends packet to  Destination Mac 00:50:79:66:00:01 set by ARP 
                     //So we extract the last 2 bytes of the destination mac address and set it to the id in this exampe it is 0x0001 or 1
-                    ushort Id_ = (ushort)((packet[4] << 8) | packet[5]);
+                    ushort Id_ = (ushort)(packet[4] << 8 | packet[5]);
 
                     //we are reformatting the packet to look like it came from our device and sending it to the translator "To" IPAddress
                     packet[0] = router_mac[0];
@@ -148,7 +148,7 @@ namespace EthernetTranslator_CSharp
                     packet[4] = router_mac[4];
                     packet[5] = router_mac[5];
 
-                    MacAddress system_mac = (MacAddress)SystemMacAddress;
+                    MacAddress system_mac = SystemMacAddress;
 
                     var Id = NewIdCreate(new MacAddress(packet[6..12]));
                     TranslatorRecords.Add(new TranslatorRecord(DateTime.Now, Id, new MacAddress(packet[6..12]), new IPAddress(packet[26..30])));
@@ -165,7 +165,7 @@ namespace EthernetTranslator_CSharp
 
                     //we are setting the last src mac address bytes to the id we created so we can track the owner packet via response later on
                     packet[10] = (byte)(Id >> 8);
-                    packet[11] = (byte)(Id);
+                    packet[11] = (byte)Id;
                     //we are setting the "To" IPaddress via the translator (redirecting)
                     packet[30] = newIp[0];
                     packet[31] = newIp[1];
@@ -215,12 +215,12 @@ namespace EthernetTranslator_CSharp
             {
                 if (i == 10) continue; // Skip the checksum field
 
-                ushort word = (ushort)((packet[ipHeaderOffset + i] << 8) | packet[ipHeaderOffset + i + 1]);
+                ushort word = (ushort)(packet[ipHeaderOffset + i] << 8 | packet[ipHeaderOffset + i + 1]);
                 sum += word;
             }
 
             // Add carry bits
-            while ((sum >> 16) != 0)
+            while (sum >> 16 != 0)
             {
                 sum = (sum & 0xFFFF) + (sum >> 16);
             }
@@ -276,9 +276,9 @@ namespace EthernetTranslator_CSharp
                 var newIp = translator.TranslateFrom.IPAddressBytes;
                 if (newIp == null) return;
 
-                MacAddress system_mac = (MacAddress)SystemMacAddress;
+                MacAddress system_mac = SystemMacAddress;
                 //saves the original id ,taken from the packet destination Mac
-                ushort id = (ushort)((packet[4] << 8) | packet[5]);
+                ushort id = (ushort)(packet[4] << 8 | packet[5]);
                 //we are reformatting the packet to look like it came from our device and sending it to the Device that owns the Id injected in the last 2 bytes of the des mac address
                 var GetOwnerTranslateRecord = FindIdOwner(id);
                 //If no owner is found, exit the method because we don't need to modify the packet
@@ -291,7 +291,7 @@ namespace EthernetTranslator_CSharp
                 //ID for the sender
                 //so when the target talks to us again it will send it via the mac address we set with it session id injected
                 packet[10] = (byte)(GetOwnerTranslateRecord.ID >> 8); // high byte
-                packet[11] = (byte)(GetOwnerTranslateRecord.ID);      // low byte
+                packet[11] = (byte)GetOwnerTranslateRecord.ID;      // low byte
 
 
                 Console.WriteLine($"[DEBUG] Edited mac to {new MacAddress(packet[6..12])} for {GetOwnerTranslateRecord.IP}");
@@ -355,12 +355,12 @@ namespace EthernetTranslator_CSharp
             {
                 var item = translators[i];
                 var IP = item.TranslateFrom;
-                if (BitConverter.ToInt32((byte[])_ip_to_translate) >> (32 - item.CIDR) ==
-                    BitConverter.ToInt32((byte[])IP) >> (32 - item.CIDR))
+                if (BitConverter.ToInt32((byte[])_ip_to_translate) >> 32 - item.CIDR ==
+                    BitConverter.ToInt32((byte[])IP) >> 32 - item.CIDR)
                 {
                     var non_mast_c = item.CIDR - 32;
                     if (cird_info.CIDR <= non_mast_c)
-                        cird_info = (i, (int)non_mast_c);
+                        cird_info = (i, non_mast_c);
                 }
             }
             return cird_info.index;
@@ -371,7 +371,7 @@ namespace EthernetTranslator_CSharp
             int ipHeaderLength = (packet[ipOffset] & 0x0F) * 4;
             int tcpOffset = ipOffset + ipHeaderLength;
 
-            int totalLength = (packet[ipOffset + 2] << 8) | packet[ipOffset + 3];
+            int totalLength = packet[ipOffset + 2] << 8 | packet[ipOffset + 3];
             int tcpLength = totalLength - ipHeaderLength;
 
             // Build pseudo-header
@@ -404,14 +404,14 @@ namespace EthernetTranslator_CSharp
             int i = 0;
             while (i < data.Length - 1)
             {
-                sum += (ushort)((data[i] << 8) | data[i + 1]);
+                sum += (ushort)(data[i] << 8 | data[i + 1]);
                 i += 2;
             }
 
             if (i < data.Length)
                 sum += (ushort)(data[i] << 8); // pad last byte if odd
 
-            while ((sum >> 16) != 0)
+            while (sum >> 16 != 0)
                 sum = (sum & 0xFFFF) + (sum >> 16);
 
             return (ushort)~sum;
@@ -429,7 +429,7 @@ namespace EthernetTranslator_CSharp
         {
             var IP = BitConverter.ToInt32(translator.TranslateFrom.IPAddressBytes);
 
-            if (translators.Any(x => IP >> (translator.CIDR - 32) == x.TranslateFrom >> (translator.CIDR - 32)))
+            if (translators.Any(x => IP >> translator.CIDR - 32 == x.TranslateFrom >> translator.CIDR - 32))
             {
                 throw new Exception($"IP With the same Subnet is already defined: {IP}/{translator.CIDR}");
             }

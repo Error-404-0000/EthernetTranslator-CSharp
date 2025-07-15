@@ -7,7 +7,7 @@ using NICDevice.MAC;
 using SharpPcap;
 using System.Text;
 
-namespace project_test
+namespace EthernetTranslator_CSharp
 {
     public class IGMPv2 : NIC, ILayer
     {
@@ -22,8 +22,8 @@ namespace project_test
         {
           
             
-            this.SendPacket(new EthernetLayer(multicastMacAddress = IPv4MulticastToMac(multicastIp: multicastIPAddress), SystemMacAddress, 0x800),
-                new IPV4Layer(SystemProtocolAddress, this.multicastIPAddress=multicastIPAddress, 0x2/*IGMP*/, 3, this.Payload()));
+            SendPacket(new EthernetLayer(multicastMacAddress = IPv4MulticastToMac(multicastIp: multicastIPAddress), SystemMacAddress, 0x800),
+                new IPV4Layer(SystemProtocolAddress, this.multicastIPAddress=multicastIPAddress, 0x2/*IGMP*/, 3, Payload()));
             if(!__is_running)
             {
                 __is_running = true;
@@ -60,14 +60,14 @@ namespace project_test
             return new MacAddress(macBytes);
         }
 
-        private void MulticastListener(object sender, SharpPcap.PacketCapture e)
+        private void MulticastListener(object sender, PacketCapture e)
         {
             var packet = e.GetPacket().Data;
             if(packet.Length<12)//src and des mac len check
                 return;
             if (packet[12..14].SequenceEqual<byte>([0x23,0x22]))
             {
-                if(packet[..6].SequenceEqual(multicastMacAddress.MacAddressBytes) && !packet[6..12].SequenceEqual<byte>(MacAddress.MacAddressBytes))
+                if(packet[..6].SequenceEqual(multicastMacAddress.MacAddressBytes) && !packet[6..12].SequenceEqual(MacAddress.MacAddressBytes))
                 {
                     var GotDate = packet[12..];
                     Console.WriteLine($"Byte Recv->String {Encoding.ASCII.GetString(GotDate)}");
